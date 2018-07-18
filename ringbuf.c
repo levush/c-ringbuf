@@ -500,7 +500,7 @@ int ringbufMemread(ringbuf_t rb, size_t* dst, size_t offset, size_t len)
  * At the call back DMA-complete and DMA-half-complete we set the write-pointer which is head of the ringbuffer
  * to the new end of valid data. Then we look for the tail pointer if it points to a memory patch that will
  * be overwritten by the next DMA transfer. If the tail ponter points out of our way, we initiate the next
- * DMA transfer with the next memory patch, which climed the buffer.
+ * DMA transfer with the next memory patch, which climbed the buffer.
  * As we should use dubble buffering with DMA we prepare the patch+1 while we wait for patch. 
  *
 
@@ -565,4 +565,87 @@ void ringbufDMAtx(ringbuf_t rb)
 }
 
 
+// Is it allowed to do DMA here?
+
+/*
+ * Is the Head pointer in a memory range?
+ * @returns 1 if Head Pointer is in memory range, if not it returns 0
+ * If the Head Pointer is in memory range we are NOT allowed to
+ * overwrite the memory range using DMA
+ *
+ */
+int ringbufHeadptrInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop) 
+{
+	uint8_t	*h;
+	int	flag=1;	
+	h=rb->Head;
+
+	
+	if (memTop>memBot) {
+		if (h>memTop) {flag=0; return (flag); }
+		else if (h<memBot) {flag=0; return (flag); }
+		else {flag=1; return (flag);}
+	}	
+	else	{
+		; //we shall invert it for the memory wrapped..
+	}
+}
+
+
+
+/*
+ * Is the Tail pointer in a memory range?
+ * @returns 1 if Tail Pointer is in memory range, if not it returns 0
+ * If the Tail Pointer is in memory range we are NOT allowed to
+ * overwrite the memory range using DMA
+ *
+ */
+int ringbufHeadptrInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop) 
+{
+	uint8_t	*t;
+	int	flag=1;	
+	t=rb->Tail;
+	
+	if (memTop>memBot) {
+		if (t>memTop) {flag=0; return (flag); }
+		else if (t<memBot) {flag=0; return (flag); }
+		else {flag=1; return (flag);}
+	}
+	else	{
+		; //we shall invert it for the memory wrapped..
+	}
+	
+}
+
+
+
+
+/*
+ * Is DMA allowed to a memory Range?
+ * @returns 1 if DMA is allowed, if DMA is forbidden it returns 0
+ *
+ */
+int ringbufDMAokInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop) 
+{
+	uint8_t	*h;
+	uint8_t	*t;
+	int	flag=0;	 //DMA allowed if 2
+
+	t=rb->Tail;
+	h=rb->Head;
+
+	if (memTop>memBot) {
+	
+		if (h>memTop) { flag++; }
+		else if (h<memBot) { flag++; }
+	
+		if (t>memTop) { flag++; }
+		else if (t<memBot) { flag++; }
+
+		if (flag==2) return (1) else return(0);
+	}
+	else	{
+		return (0);
+	}
+}
 
