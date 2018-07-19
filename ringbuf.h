@@ -29,6 +29,7 @@
 #include <stddef.h>
 #include <sys/types.h>
 
+
 typedef struct ringbuf_t *ringbuf_t;
 
 /*
@@ -254,6 +255,63 @@ void *ringbufCopy(ringbuf_t dst, ringbuf_t src, size_t count);
 int ringbufMemwrite(ringbuf_t rb, size_t* src, size_t offset, size_t len);
 /*peek some data from ringbuffer into buffer dst */
 int ringbufMemread(ringbuf_t rb, size_t* dst, size_t offset, size_t len);
+
+
+//DMA
+
+/*
+ * Is the Head pointer in a memory range?
+ * @returns 1 if Head Pointer is in memory range, if not it returns 0
+ * If the Head Pointer is in memory range we are NOT allowed to
+ * overwrite the memory range using DMA
+ *
+ */
+int ringbufHeadptrInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop);
+
+/*
+ * Is the Tail pointer in a memory range?
+ * @returns 1 if Tail Pointer is in memory range, if not it returns 0
+ * If the Tail Pointer is in memory range we are NOT allowed to
+ * overwrite the memory range using DMA
+ *
+ */
+int ringbufTailptrInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop);
+
+
+
+/*
+ * Is DMA allowed to a memory Range?
+ * @returns 1 if DMA is allowed, if DMA is forbidden it returns 0
+ *
+ */
+int ringbufDMAokInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop);
+
+
+
+
+
+
+
+
+
+/*
+ * Is DMA Forbidden to a memory Range? Fast implementation
+ * @param memTop pointer to bottom address of memory area for next DMA
+ * @param memBot pointer to bottom address of memory area for next DMA
+ * @note: memTop > memBot is required, wrapped memory at top or bottom boundary
+ *   of RAM is not supported.
+ * @returns non-zerro if DMA is forbidden, if DMA is allowed it returns 0
+ * this looks a bit funny but it is optimized for speed.
+ *
+ */
+int ringbufDMAForbiddenInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop);
+
+
+
+
+
+
+
 
 
 #endif /* INCLUDED_RINGBUF_H */

@@ -578,7 +578,7 @@ int ringbufHeadptrInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop)
 {
 	uint8_t	*h;
 	int	flag=1;	
-	h=rb->Head;
+	h=rb->head;
 
 	
 	if (memTop>memBot) {
@@ -600,11 +600,11 @@ int ringbufHeadptrInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop)
  * overwrite the memory range using DMA
  *
  */
-int ringbufHeadptrInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop) 
+int ringbufTailptrInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop) 
 {
 	uint8_t	*t;
 	int	flag=1;	
-	t=rb->Tail;
+	t=rb->tail;
 	
 	if (memTop>memBot) {
 		if (t>memTop) {flag=0; return (flag); }
@@ -631,8 +631,8 @@ int ringbufDMAokInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop)
 	uint8_t	*t;
 	int	flag=0;	 //DMA allowed if 2
 
-	t=rb->Tail;
-	h=rb->Head;
+	t=rb->tail;
+	h=rb->head;
 
 	if (memTop>memBot) {
 	
@@ -642,10 +642,49 @@ int ringbufDMAokInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop)
 		if (t>memTop) { flag++; }
 		else if (t<memBot) { flag++; }
 
-		if (flag==2) return (1) else return(0);
+		if (flag==2) return (1); else return(0);
 	}
 	else	{
 		return (0);
 	}
 }
+
+
+
+
+/*
+ * Is DMA Forbidden to a memory Range? Fast implementation
+ * @param memTop pointer to bottom address of memory area for next DMA
+ * @param memBot pointer to bottom address of memory area for next DMA
+ * @note: memTop > memBot is required, wrapped memory at top or bottom boundary
+ *   of RAM is not supported.
+ * @returns non-zerro if DMA is forbidden, if DMA is allowed it returns 0
+ * this looks a bit funny but it is optimized for speed.
+ *
+ */
+int ringbufDMAForbiddenInRange(ringbuf_t rb, uint8_t *memBot, uint8_t *memTop) 
+{
+	uint8_t	*h;
+	uint8_t	*t;
+	int	i=2;	 //2
+
+	t=rb->tail;
+	h=rb->head;
+
+	if (memTop>memBot) {
+	
+		if (h>memTop) { i--; }
+		else if (h<memBot) { i--; }
+	
+		if (t>memTop) { i--; }
+		else if (t<memBot) { i--; }
+
+		return (i); //0 means DMA allowed.
+	}
+	else	{
+		return (7);  //indicate wrong call
+	}
+}
+
+
 
