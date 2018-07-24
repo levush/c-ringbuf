@@ -22,10 +22,12 @@
 
 #include "ringbuf.h"
 
+/*
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+*/
 
 /*
  * The #include sys/uio.h is not really needed, but was 
@@ -182,7 +184,7 @@ size_t ringbufBytesFree(const struct ringbuf_t *rb)
 {
     ssize_t s = rb->head - rb->tail;
     if (s >= 0)
-        return ringbuf_capacity(rb) - s;
+        return ringbufCapacity(rb) - s;
     else
         return -s - 1;
 }
@@ -190,7 +192,7 @@ size_t ringbufBytesFree(const struct ringbuf_t *rb)
 size_t
 ringbufBytesUsed(const struct ringbuf_t *rb)
 {
-    return ringbufCapacity(rb) - ringbuf_bytes_free(rb);
+    return ringbufCapacity(rb) - ringbufBytesFree(rb);
 }
 
 int ringbufIsFull(const struct ringbuf_t *rb)
@@ -200,7 +202,7 @@ int ringbufIsFull(const struct ringbuf_t *rb)
 
 int ringbufIsEmpty(const struct ringbuf_t *rb)
 {
-    return ringbufBytesFree(rb) == ringbuf_capacity(rb);
+    return ringbufBytesFree(rb) == ringbufCapacity(rb);
 }
 
 const void *ringbufTail(const struct ringbuf_t *rb)
@@ -226,15 +228,15 @@ static uint8_t *ringbufNextp(ringbuf_t rb, const uint8_t *p)
      * portable.
      */
     #ifndef RINGBUF_NO_ASSERT
-    assert((p >= rb->buf) && (p < ringbuf_end(rb)));
+    assert((p >= rb->buf) && (p < ringbufEnd(rb)));
     #endif /* !RINGBUF_NO_ASSERT */
     return rb->buf + ((++p - rb->buf) % ringbufBufferSize(rb));
 }
 
-size_t ringbufFindChr(const struct ringbuf_t *rb, int c, size_t offset)
+size_t ringbufFindchr(const struct ringbuf_t *rb, int c, size_t offset)
 {
-    const uint8_t *bufend = ringbuf_end(rb);
-    size_t bytes_used = ringbuf_bytes_used(rb);
+    const uint8_t *bufend = ringbufEnd(rb);
+    size_t bytes_used = ringbufBytesUsed(rb);
     if (offset >= bytes_used)
         return bytes_used;
 
@@ -248,15 +250,15 @@ size_t ringbufFindChr(const struct ringbuf_t *rb, int c, size_t offset)
     if (found)
         return offset + (found - start);
     else
-        return ringbuf_findchr(rb, c, offset + n);
+        return ringbufFindchr(rb, c, offset + n);
 }
 
 size_t ringbufMemset(ringbuf_t dst, int c, size_t len)
 {
-    const uint8_t *bufend = ringbuf_end(dst);
+    const uint8_t *bufend = ringbufEnd(dst);
     size_t nwritten = 0;
     size_t count = MIN(len, ringbufBufferSize(dst));
-    int overflow = count > ringbuf_bytes_free(dst);
+    int overflow = count > ringbufBytesFree(dst);
 
     while (nwritten != count) {
 
@@ -275,9 +277,9 @@ size_t ringbufMemset(ringbuf_t dst, int c, size_t len)
     }
 
     if (overflow) {
-        dst->tail = ringbuf_nextp(dst, dst->head);
+        dst->tail = ringbufNextp(dst, dst->head);
         #ifndef RINGBUF_NO_ASSERT
-        assert(ringbuf_is_full(dst));
+        assert(ringbufIsFull(dst));
         #endif /* !RINGBUF_NO_ASSERT */
     }
 
@@ -287,8 +289,8 @@ size_t ringbufMemset(ringbuf_t dst, int c, size_t len)
 void *ringbufMemcpyInto(ringbuf_t dst, const void *src, size_t count)
 {
     const uint8_t *u8src = src;
-    const uint8_t *bufend = ringbuf_end(dst);
-    int overflow = count > ringbuf_bytes_free(dst);
+    const uint8_t *bufend = ringbufEnd(dst);
+    int overflow = count > ringbufBytesFree(dst);
     size_t nread = 0;
 
     while (nread != count) {
@@ -307,9 +309,9 @@ void *ringbufMemcpyInto(ringbuf_t dst, const void *src, size_t count)
     }
 
     if (overflow) {
-        dst->tail = ringbuf_nextp(dst, dst->head);
+        dst->tail = ringbufNextp(dst, dst->head);
         #ifndef RINGBUF_NO_ASSERT
-        assert(ringbuf_is_full(dst));
+        assert(ringbufIsFull(dst));
         #endif /* !RINGBUF_NO_ASSERT */
     }
 
@@ -318,8 +320,8 @@ void *ringbufMemcpyInto(ringbuf_t dst, const void *src, size_t count)
 
 ssize_t ringbufRead(int fd, ringbuf_t rb, size_t count)
 {
-    const uint8_t *bufend = ringbuf_end(rb);
-    size_t nfree = ringbuf_bytes_free(rb);
+    const uint8_t *bufend = ringbufEnd(rb);
+    size_t nfree = ringbufBytesFree(rb);
 
     /* don't write beyond the end of the buffer */
     #ifndef RINGBUF_NO_ASSERT
@@ -339,9 +341,9 @@ ssize_t ringbufRead(int fd, ringbuf_t rb, size_t count)
 
         /* fix up the tail pointer if an overflow occurred */
         if (n > nfree) {
-            rb->tail = ringbuf_nextp(rb, rb->head);
+            rb->tail = ringbufNextp(rb, rb->head);
             #ifndef RINGBUF_NO_ASSERT
-            assert(ringbuf_is_full(rb));
+            assert(ringbufIsFull(rb));
             #endif /* !RINGBUF_NO_ASSERT */
         }
     }
@@ -351,12 +353,12 @@ ssize_t ringbufRead(int fd, ringbuf_t rb, size_t count)
 
 void *ringbufMemcpyFrom(void *dst, ringbuf_t src, size_t count)
 {
-    size_t bytes_used = ringbuf_bytes_used(src);
+    size_t bytes_used = ringbufBytesUsed(src);
     if (count > bytes_used)
         return 0;
 
     uint8_t *u8dst = dst;
-    const uint8_t *bufend = ringbuf_end(src);
+    const uint8_t *bufend = ringbufEnd(src);
     size_t nwritten = 0;
     while (nwritten != count) {
         #ifndef RINGBUF_NO_ASSERT
@@ -372,18 +374,18 @@ void *ringbufMemcpyFrom(void *dst, ringbuf_t src, size_t count)
             src->tail = src->buf;
     }
     #ifndef RINGBUF_NO_ASSERT
-    assert(count + ringbuf_bytes_used(src) == bytes_used);
+    assert(count + ringbufBytesUsed(src) == bytes_used);
     #endif /* !RINGBUF_NO_ASSERT */
     return src->tail;
 }
 
 ssize_t ringbufWrite(int fd, ringbuf_t rb, size_t count)
 {
-    size_t bytes_used = ringbuf_bytes_used(rb);
+    size_t bytes_used = ringbufBytesUsed(rb);
     if (count > bytes_used)
         return 0;
 
-    const uint8_t *bufend = ringbuf_end(rb);
+    const uint8_t *bufend = ringbufEnd(rb);
     #ifndef RINGBUF_NO_ASSERT
     assert(bufend > rb->head);
     #endif /* !RINGBUF_NO_ASSERT */
@@ -399,7 +401,7 @@ ssize_t ringbufWrite(int fd, ringbuf_t rb, size_t count)
         if (rb->tail == bufend)
             rb->tail = rb->buf;
         #ifndef RINGBUF_NO_ASSERT
-        assert(n + ringbuf_bytes_used(rb) == bytes_used);
+        assert(n + ringbufBytesUsed(rb) == bytes_used);
         #endif /* !RINGBUF_NO_ASSERT */
     }
 
@@ -408,13 +410,13 @@ ssize_t ringbufWrite(int fd, ringbuf_t rb, size_t count)
 
 void *ringbufCopy(ringbuf_t dst, ringbuf_t src, size_t count)
 {
-    size_t src_bytes_used = ringbuf_bytes_used(src);
+    size_t src_bytes_used = ringbufBytesUsed(src);
     if (count > src_bytes_used)
         return 0;
-    int overflow = count > ringbuf_bytes_free(dst);
+    int overflow = count > ringbufBytesFree(dst);
 
-    const uint8_t *src_bufend = ringbuf_end(src);
-    const uint8_t *dst_bufend = ringbuf_end(dst);
+    const uint8_t *src_bufend = ringbufEnd(src);
+    const uint8_t *dst_bufend = ringbufEnd(dst);
     size_t ncopied = 0;
     while (ncopied != count) {
         #ifndef RINGBUF_NO_ASSERT
@@ -437,12 +439,12 @@ void *ringbufCopy(ringbuf_t dst, ringbuf_t src, size_t count)
             dst->head = dst->buf;
     }
     #ifndef RINGBUF_NO_ASSERT
-    assert(count + ringbuf_bytes_used(src) == src_bytes_used);
+    assert(count + ringbufBytesUsed(src) == src_bytes_used);
     #endif /* !RINGBUF_NO_ASSERT */
     if (overflow) {
-        dst->tail = ringbuf_nextp(dst, dst->head);
+        dst->tail = ringbufNextp(dst, dst->head);
         #ifndef RINGBUF_NO_ASSERT
-        assert(ringbuf_is_full(dst));
+        assert(ringbufIsFull(dst));
         #endif /* !RINGBUF_NO_ASSERT */
     }
 
@@ -461,8 +463,8 @@ size_t min(size_t a, size_t b) {
 int ringbufMemwrite(ringbuf_t rb, size_t* src, size_t offset, size_t len) 
 {
     src = &(src[offset]);
-    size_t nbToWrite = min(ringbuf_bytes_free(rb), len);
-    ringbuf_memcpy_into(rb, (const void*)src, nbToWrite);
+    size_t nbToWrite = min(ringbufBytesFree(rb), len);
+    ringbufMemcpyInto(rb, (const void*)src, nbToWrite);
     return nbToWrite;
 }
 
@@ -473,8 +475,8 @@ int ringbufMemwrite(ringbuf_t rb, size_t* src, size_t offset, size_t len)
 int ringbufMemread(ringbuf_t rb, size_t* dst, size_t offset, size_t len) 
 {
     dst = &(dst[offset]);
-    size_t nbToRead = min(ringbuf_bytes_used(rb), len);
-    ringbuf_memcpy_from((void*)dst, rb, nbToRead);
+    size_t nbToRead = min(ringbufBytesUsed(rb), len);
+    ringbufMemcpyFrom((void*)dst, rb, nbToRead);
     return nbToRead;
 }
 
