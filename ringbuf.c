@@ -481,6 +481,38 @@ int ringbufMemread(ringbuf_t rb, size_t* dst, size_t offset, size_t len)
 }
 
 
+
+
+/*put one character to ringbuffer and update head pointer
+/*put one character to ringbuffer and update head pointer
+ */
+int ringbufPutchr(ringbuf_t rb,uint8_t putme) 
+{
+    uint8_t tmpbuf[2]; //2 to be sure not to overflow, can be 1
+    
+    tmpbuf[1]=putme;
+    size_t nbToWrite = min(ringbufBytesFree(rb), 1);
+    ringbufMemcpyInto(rb, (const void*)tmpbuf, nbToWrite);
+    return nbToWrite;
+}
+
+//additions taken from fork of zipper97412/c-ringbuf
+/*peek some data from ringbuffer into buffer dst starting at offset.
+
+
+/*get one character from ringbuffer and update tail pointer
+ *get one character from ringbuffer and update tail pointer
+ */
+uint8_t ringbufGetchr(ringbuf_t rb) 
+{
+    uint8_t tmpbuf[2]; //2 to be sure not to overflow, can be 1
+    size_t nbToRead = min(ringbufBytesUsed(rb), 1);
+    ringbufMemcpyFrom((void*)tmpbuf, rb, nbToRead);
+    return tmpbuf[1];
+}
+
+
+
 /*
  *  D M A
  *  to be done ...

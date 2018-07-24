@@ -257,6 +257,18 @@ int ringbufMemwrite(ringbuf_t rb, size_t* src, size_t offset, size_t len);
 int ringbufMemread(ringbuf_t rb, size_t* dst, size_t offset, size_t len);
 
 
+/*put one character to ringbuffer and update head pointer
+/*put one character to ringbuffer and update head pointer
+ */
+int ringbufPutchr(ringbuf_t rb,uint8_t putme);
+
+/*get one character from ringbuffer and update tail pointer
+ *get one character from ringbuffer and update tail pointer
+ */
+uint8_t ringbufGetchr(ringbuf_t rb);
+
+
+
 //DMA
 
 /*
